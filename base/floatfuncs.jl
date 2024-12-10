@@ -42,14 +42,9 @@ it is the minimum of `maxintfloat(T)` and [`typemax(S)`](@ref).
 maxintfloat(::Type{S}, ::Type{T}) where {S<:AbstractFloat, T<:Integer} = min(maxintfloat(S), S(typemax(T)))
 maxintfloat() = maxintfloat(Float64)
 
-isinteger(x::AbstractFloat) = (x - trunc(x) == 0)
+isinteger(x::AbstractFloat) = iszero(x - trunc(x)) # note: x == trunc(x) would be incorrect for x=Inf
 
 # See rounding.jl for docstring.
-
-function round(::Type{T}, x::AbstractFloat, r::RoundingMode) where {T<:Integer}
-    r != RoundToZero && (x = round(x,r))
-    trunc(T, x)
-end
 
 # NOTE: this relies on the current keyword dispatch behaviour (#9498).
 function round(x::Real, r::RoundingMode=RoundNearest;
@@ -76,20 +71,6 @@ function round(x::Real, r::RoundingMode=RoundNearest;
         end
     end
 end
-
-trunc(x::Real; kwargs...) = round(x, RoundToZero; kwargs...)
-floor(x::Real; kwargs...) = round(x, RoundDown; kwargs...)
-ceil(x::Real; kwargs...)  = round(x, RoundUp; kwargs...)
-
-# fallbacks
-trunc(::Type{T}, x::Real; kwargs...) where {T} = round(T, x, RoundToZero; kwargs...)
-floor(::Type{T}, x::Real; kwargs...) where {T} = round(T, x, RoundDown; kwargs...)
-ceil(::Type{T}, x::Real; kwargs...) where {T} = round(T, x, RoundUp; kwargs...)
-round(::Type{T}, x::Real; kwargs...) where {T} = round(T, x, RoundNearest; kwargs...)
-
-round(::Type{T}, x::Real, r::RoundingMode) where {T} = convert(T, round(x, r))
-
-round(x::Integer, r::RoundingMode) = x
 
 # round x to multiples of 1/invstep
 function _round_invstep(x, invstep, r::RoundingMode)
@@ -239,7 +220,22 @@ true
 function isapprox(x::Number, y::Number;
                   atol::Real=0, rtol::Real=rtoldefault(x,y,atol),
                   nans::Bool=false, norm::Function=abs)
-    x == y || (isfinite(x) && isfinite(y) && norm(x-y) <= max(atol, rtol*max(norm(x), norm(y)))) || (nans && isnan(x) && isnan(y))
+    x′, y′ = promote(x, y) # to avoid integer overflow
+    x == y ||
+        (isfinite(x) && isfinite(y) && norm(x-y) <= max(atol, rtol*max(norm(x′), norm(y′)))) ||
+         (nans && isnan(x) && isnan(y))
+end
+
+function isapprox(x::Integer, y::Integer;
+                  atol::Real=0, rtol::Real=rtoldefault(x,y,atol),
+                  nans::Bool=false, norm::Function=abs)
+    if norm === abs && atol < 1 && rtol == 0
+        return x == y
+    else
+        # We need to take the difference `max` - `min` when comparing unsigned integers.
+        _x, _y = x < y ? (x, y) : (y, x)
+        return norm(_y - _x) <= max(atol, rtol*max(norm(_x), norm(_y)))
+    end
 end
 
 """

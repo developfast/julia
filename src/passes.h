@@ -15,10 +15,6 @@ struct DemoteFloat16Pass : PassInfoMixin<DemoteFloat16Pass> {
     static bool isRequired() { return true; }
 };
 
-struct CombineMulAddPass : PassInfoMixin<CombineMulAddPass> {
-    PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) JL_NOTSAFEPOINT;
-};
-
 struct LateLowerGCPass : PassInfoMixin<LateLowerGCPass> {
     PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) JL_NOTSAFEPOINT;
     static bool isRequired() { return true; }
@@ -62,14 +58,9 @@ struct RemoveNIPass : PassInfoMixin<RemoveNIPass> {
     static bool isRequired() { return true; }
 };
 
-struct LowerSIMDLoopPass : PassInfoMixin<LowerSIMDLoopPass> {
-    PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) JL_NOTSAFEPOINT;
-    static bool isRequired() { return true; }
-};
-
 struct MultiVersioningPass : PassInfoMixin<MultiVersioningPass> {
     bool external_use;
-    MultiVersioningPass(bool external_use = false) : external_use(external_use) {}
+    MultiVersioningPass(bool external_use = false) JL_NOTSAFEPOINT : external_use(external_use) {}
     PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) JL_NOTSAFEPOINT;
     static bool isRequired() { return true; }
 };
@@ -99,6 +90,11 @@ struct LowerPTLSPass : PassInfoMixin<LowerPTLSPass> {
 
 // Loop Passes
 struct JuliaLICMPass : PassInfoMixin<JuliaLICMPass> {
+    PreservedAnalyses run(Loop &L, LoopAnalysisManager &AM,
+                          LoopStandardAnalysisResults &AR, LPMUpdater &U) JL_NOTSAFEPOINT;
+};
+
+struct LowerSIMDLoopPass : PassInfoMixin<LowerSIMDLoopPass> {
     PreservedAnalyses run(Loop &L, LoopAnalysisManager &AM,
                           LoopStandardAnalysisResults &AR, LPMUpdater &U) JL_NOTSAFEPOINT;
 };
